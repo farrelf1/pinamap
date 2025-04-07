@@ -91,7 +91,7 @@ export default function MemoryMap() {
       const mapboxSource = mapRef.current?.getSource('messages') as GeoJSONSource;
 
       mapboxSource.getClusterExpansionZoom(clusterId, (err, zoom) => {
-        if (err) return;
+        if (err || zoom == null) return;
         const coordinates = (feature.geometry as Point).coordinates as [number, number];
         mapRef.current?.easeTo({ center: coordinates, zoom, duration: 500 });
       });
