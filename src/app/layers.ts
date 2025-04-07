@@ -1,4 +1,4 @@
-import type {LayerProps} from 'react-map-gl/mapbox';
+import type { LayerProps } from 'react-map-gl/mapbox';
 
 export const clusterLayer: LayerProps = {
   id: 'clusters',
@@ -21,14 +21,14 @@ export const clusterCountLayer: LayerProps = {
   }
 };
 
-export const unclusteredPointLayer = {
-    id: 'unclustered-point',
-    type: 'circle',
-    filter: ['!', ['has', 'point_count']],
-    paint: {
-      'circle-color': '#11b4da',
-      'circle-radius': 6,
-      'circle-stroke-width': 1,
-      'circle-stroke-color': '#fff',
-    },
-  };  
+export const unclusteredPointLayer: LayerProps = {
+  id: 'unclustered-point',
+  type: 'circle',
+  filter: ['!', ['has', 'point_count']],
+  paint: {
+    'circle-color': '#11b4da',
+    'circle-radius': 6,
+    'circle-stroke-width': 1,
+    'circle-stroke-color': '#fff',
+  },
+};
