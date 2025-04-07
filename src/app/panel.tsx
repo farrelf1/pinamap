@@ -138,7 +138,12 @@ export default function Panel({
         <p className="text-sm text-gray-500">Time: <span className="text-black">{new Date(f.properties?.time).toLocaleString()}</span></p>
       </div>
       <p className="text-gray-800 text-sm italic mb-1">"{f.properties?.message}"</p>
-      <p className="text-xs text-gray-500">📍 {f.geometry.coordinates.join(', ')}</p>
+      <p className="text-xs text-gray-500">
+        📍{' '}
+        {(f.geometry.type === 'Point' && Array.isArray(f.geometry.coordinates))
+          ? f.geometry.coordinates.join(', ')
+          : 'unknown location'}
+      </p>
     </div>
   ), [onSelectResult]);
 
