@@ -46,6 +46,7 @@ export default function MemoryMap() {
   const [pinMode, setPinMode] = useState<boolean>(false);
   const [pinLocation, setPinLocation] = useState<[number, number]>([-103.59, 40.67]);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [tempMarker, setTempMarker] = useState<[number, number] | null>(null);
 
   // Fetch initial data
   useEffect(() => {
@@ -80,7 +81,10 @@ export default function MemoryMap() {
 
   const onClick = useCallback((event: MapLayerMouseEvent) => {
     const feature = event.features?.[0];
-    if (!feature) return;
+    if (!feature) {
+      setTempMarker(null);
+      return;
+    }
 
     const isCluster = !!feature.properties?.cluster;
 
@@ -99,11 +103,13 @@ export default function MemoryMap() {
       setSelectedFeature(feature);
       setMatchedFeatures([]);
       setSearchQuery(''); // Clear search query when a feature is clicked
+      setTempMarker(null);
     }
   }, []);
 
   const handleSearch = useCallback(async (receiver: string) => {
     setSearchQuery(receiver);
+    setTempMarker(null);
     
     if (!receiver) {
       setMatchedFeatures([]);
@@ -163,6 +169,7 @@ export default function MemoryMap() {
     setMatchedFeatures([]);
     setSelectedFeature(feature);
     setSearchQuery('');
+    setTempMarker(null);
     
     const coordinates = (feature.geometry as Point).coordinates as [number, number];
     mapRef.current?.easeTo({ center: coordinates, zoom: 9, duration: 500 });
@@ -172,6 +179,7 @@ export default function MemoryMap() {
     setMatchedFeatures([]);
     setSelectedFeature(feature);
     setSearchQuery('');
+    setTempMarker(null);
     
     const coordinates = (feature.geometry as Point).coordinates as [number, number];
     mapRef.current?.easeTo({ center: coordinates, zoom: 9, duration: 500 });
@@ -185,6 +193,7 @@ export default function MemoryMap() {
         setPinLocation([center.lng, center.lat]);
       }
     }
+    setTempMarker(null);
   }, []);
 
   const handleLocationSelect = useCallback((lng: number, lat: number, zoom: number = 13) => {
@@ -193,6 +202,10 @@ export default function MemoryMap() {
       zoom,
       duration: 1000,
     });
+  }, []);
+
+  const handleTempMarker = useCallback((lng: number, lat: number) => {
+    setTempMarker([lng, lat]);
   }, []);
 
   return (
@@ -233,11 +246,20 @@ export default function MemoryMap() {
               }
             />
           )}
+
+          {tempMarker && (
+            <Marker
+              longitude={tempMarker[0]}
+              latitude={tempMarker[1]}
+              color="#3b82f6"
+            />
+          )}
         </Map>
         
         <LocationSearch 
           mapboxToken={MAPBOX_TOKEN}
           onLocationSelect={handleLocationSelect}
+          onTempMarker={handleTempMarker}
         />
       </div>
 
