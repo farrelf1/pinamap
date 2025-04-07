@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { Feature } from 'geojson';
+import type { Feature, Point, GeoJsonProperties } from 'geojson';
 
 interface PanelProps {
   feature: Feature | null;
@@ -98,7 +98,7 @@ export default function Panel({
         throw new Error('Invalid response from server');
       }
 
-      const newFeature = {
+      const newFeature: Feature<Point, GeoJsonProperties> = {
         type: 'Feature',
         properties: {
           id: `msg${newMemory.id}`,
