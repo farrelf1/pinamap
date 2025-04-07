@@ -92,7 +92,7 @@ export default function MemoryMap() {
 
       mapboxSource.getClusterExpansionZoom(clusterId, (err, zoom) => {
         if (err) return;
-        const coordinates = (feature.geometry as Point).coordinates;
+        const coordinates = (feature.geometry as Point).coordinates as [number, number];
         mapRef.current?.easeTo({ center: coordinates, zoom, duration: 500 });
       });
     } else {
@@ -164,8 +164,8 @@ export default function MemoryMap() {
     setSelectedFeature(feature);
     setSearchQuery('');
     
-    const coords = (feature.geometry as Point).coordinates;
-    mapRef.current?.easeTo({ center: coords, zoom: 9, duration: 500 });
+    const coordinates = (feature.geometry as Point).coordinates as [number, number];
+    mapRef.current?.easeTo({ center: coordinates, zoom: 9, duration: 500 });
   }, []);
 
   const handleZoomToFeature = useCallback((feature: Feature) => {
@@ -173,8 +173,8 @@ export default function MemoryMap() {
     setSelectedFeature(feature);
     setSearchQuery('');
     
-    const coords = (feature.geometry as Point).coordinates;
-    mapRef.current?.easeTo({ center: coords, zoom: 9, duration: 500 });
+    const coordinates = (feature.geometry as Point).coordinates as [number, number];
+    mapRef.current?.easeTo({ center: coordinates, zoom: 9, duration: 500 });
   }, []);
 
   const handlePinToggle = useCallback((show: boolean) => {
