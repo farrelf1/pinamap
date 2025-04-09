@@ -19,6 +19,71 @@ interface PanelProps {
   isLoading: boolean;
 }
 
+// Image processing utility function
+const compressImage = async (file: File, maxWidth: number, maxHeight: number, quality = 0.1): Promise<File> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+
+    reader.onload = (event) => {
+      img.src = event.target?.result as string;
+    };
+
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      // Calculate new dimensions
+      if (width > height) {
+        if (width > maxWidth) {
+          height *= maxWidth / width;
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width *= maxHeight / height;
+          height = maxHeight;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Could not get canvas context'));
+        return;
+      }
+
+      // Draw and compress image
+      ctx.drawImage(img, 0, 0, width, height);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error('Canvas toBlob failed'));
+            return;
+          }
+
+          const compressedFile = new File([blob], file.name, {
+            type: 'image/jpeg',
+            lastModified: Date.now(),
+          });
+          resolve(compressedFile);
+        },
+        'image/jpeg',
+        quality
+      );
+    };
+
+    reader.onerror = () => reject(new Error('FileReader failed'));
+    img.onerror = () => reject(new Error('Image loading failed'));
+
+    reader.readAsDataURL(file);
+  });
+};
+
 export default function Panel({
   feature,
   results,
@@ -35,10 +100,13 @@ export default function Panel({
   const [formData, setFormData] = useState({
     message: '',
     receiver: '',
+    image: null as File | null,
   });
   const [markerLocation, setMarkerLocation] = useState<[number, number] | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (pinFormData?.latitude && pinFormData?.longitude) {
@@ -49,14 +117,61 @@ export default function Panel({
     }
   }, [pinFormData]);
 
+  const handleLoadImage = useCallback((featureId: string, imageUrl: string) => {
+    setLoadedImages(prev => {
+      const newSet = new Set(prev);
+      newSet.add(featureId);
+      return newSet;
+    });
+  }, []);
+
   const handleFormChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
-      // Clear any previous error when user makes changes
       if (errorMessage) setErrorMessage(null);
     },
     [errorMessage]
   );
+
+  const handleImageChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const originalFile = e.target.files[0];
+      setIsSubmitting(true);
+  
+      try {
+        console.log('Original file size:', (originalFile.size / 1024).toFixed(2), 'KB');
+        
+        // Compress image (max 1200px, 70% quality)
+        const compressedFile = await compressImage(originalFile, 1200, 1200, 0.7);
+        
+        console.log('Compressed file size:', (compressedFile.size / 1024).toFixed(2), 'KB');
+        console.log('Compression ratio:', 
+          ((originalFile.size - compressedFile.size) / originalFile.size * 100).toFixed(2), '%');
+  
+        setFormData(prev => ({ ...prev, image: compressedFile }));
+        
+        // Create preview URL
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setImagePreview(event.target?.result as string);
+        };
+        reader.readAsDataURL(compressedFile);
+  
+      } catch (error) {
+        console.error('Image compression error:', error);
+        setErrorMessage('Failed to process image');
+        // Fallback to original file if compression fails
+        setFormData(prev => ({ ...prev, image: originalFile }));
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setImagePreview(event.target?.result as string);
+        };
+        reader.readAsDataURL(originalFile);
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
+  }, []);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,16 +190,19 @@ export default function Panel({
     setIsSubmitting(true);
 
     try {
+      const formPayload = new FormData();
+      formPayload.append('message', formData.message);
+      formPayload.append('receiver', formData.receiver);
+      formPayload.append('latitude', markerLocation[1].toString());
+      formPayload.append('longitude', markerLocation[0].toString());
+      
+      if (formData.image) {
+        formPayload.append('image', formData.image);
+      }
+
       const response = await fetch('/api/submit', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          latitude: markerLocation[1],
-          longitude: markerLocation[0],
-        }),
+        body: formPayload,
       });
 
       if (!response.ok) {
@@ -105,6 +223,8 @@ export default function Panel({
           message: newMemory.message,
           receiver: newMemory.receiver,
           time: newMemory.time,
+          hasImage: newMemory.has_image,
+          image_url: newMemory.image_url,
         },
         geometry: {
           type: 'Point',
@@ -114,8 +234,9 @@ export default function Panel({
 
       onNewPin(newFeature);
       
-      // Reset all form state at once
-      setFormData({ message: '', receiver: '' });
+      // Reset form state
+      setFormData({ message: '', receiver: '', image: null });
+      setImagePreview(null);
       setMarkerLocation(null);
       setShowForm(false);
       onPinFormToggle(false);
@@ -127,34 +248,67 @@ export default function Panel({
     }
   }, [formData, markerLocation, onNewPin, onPinFormToggle]);
 
-  const renderFeatureCard = useCallback((f: Feature) => (
-    <div
-      key={f.properties?.id}
-      className="border border-gray-300 rounded-lg p-3 shadow hover:shadow-md transition cursor-pointer bg-white"
-      onClick={() => onSelectResult(f)}
-    >
-      <div className="mb-2">
-        <p className="text-sm text-gray-500">To: <span className="text-black font-semibold">{f.properties?.receiver}</span></p>
-        <p className="text-sm text-gray-500">Time: <span className="text-black">{new Date(f.properties?.time).toLocaleString()}</span></p>
+  const renderFeatureCard = useCallback((f: Feature) => {
+    const featureId = f.properties?.id;
+    const hasImage = f.properties?.hasImage;
+    const imageUrl = f.properties?.image_url;
+    const isImageLoaded = loadedImages.has(featureId);
+
+    return (
+      <div
+        key={featureId}
+        className="border border-gray-300 rounded-lg p-3 shadow hover:shadow-md transition cursor-pointer bg-white"
+        onClick={() => onSelectResult(f)}
+      >
+        <div className="mb-2">
+          <p className="text-sm text-gray-500">To: <span className="text-black font-semibold">{f.properties?.receiver}</span></p>
+          <p className="text-sm text-gray-500">Time: <span className="text-black">{new Date(f.properties?.time).toLocaleString()}</span></p>
+        </div>
+        <p className="text-gray-800 text-sm italic mb-1">"{f.properties?.message}"</p>
+        
+        {hasImage && (
+          <div className="mb-2">
+            {isImageLoaded ? (
+              <img 
+                src={imageUrl} 
+                alt="Memory" 
+                className="w-full h-auto rounded border border-gray-200"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            ) : (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleLoadImage(featureId, imageUrl);
+                }}
+                className="w-full bg-gray-100 hover:bg-gray-200 rounded p-2 text-xs text-gray-700 flex items-center justify-center"
+              >
+                <span>📷 Contains image - Click to load</span>
+              </button>
+            )}
+          </div>
+        )}
+        
+        <p className="text-xs text-gray-500">
+          📍{' '}
+          {(f.geometry.type === 'Point' && Array.isArray(f.geometry.coordinates))
+            ? f.geometry.coordinates.join(', ')
+            : 'unknown location'}
+        </p>
       </div>
-      <p className="text-gray-800 text-sm italic mb-1">"{f.properties?.message}"</p>
-      <p className="text-xs text-gray-500">
-        📍{' '}
-        {(f.geometry.type === 'Point' && Array.isArray(f.geometry.coordinates))
-          ? f.geometry.coordinates.join(', ')
-          : 'unknown location'}
-      </p>
-    </div>
-  ), [onSelectResult]);
+    );
+  }, [loadedImages, handleLoadImage, onSelectResult]);
 
   const handleToggleForm = useCallback(() => {
     const toggled = !showForm;
     setShowForm(toggled);
     onPinFormToggle(toggled);
     
-    // Clear form state when closing
     if (!toggled) {
-      setFormData({ message: '', receiver: '' });
+      setFormData({ message: '', receiver: '', image: null });
+      setImagePreview(null);
       setErrorMessage(null);
     }
   }, [showForm, onPinFormToggle]);
@@ -229,6 +383,43 @@ export default function Panel({
               disabled={isSubmitting}
             />
             <p className="text-xs text-gray-500 mt-1">your message</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Image (optional)
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              className="block w-full text-sm text-gray-500
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-md file:border-0
+                file:text-sm file:font-semibold
+                file:bg-blue-50 file:text-blue-700
+                hover:file:bg-blue-100"
+              disabled={isSubmitting}
+            />
+            {imagePreview && (
+              <div className="mt-2">
+                <img 
+                  src={imagePreview} 
+                  alt="Preview" 
+                  className="max-w-full h-auto rounded border border-gray-200"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData(prev => ({ ...prev, image: null }));
+                    setImagePreview(null);
+                  }}
+                  className="mt-1 text-xs text-red-500 hover:text-red-700"
+                >
+                  Remove image
+                </button>
+              </div>
+            )}
           </div>
 
           {markerLocation ? (

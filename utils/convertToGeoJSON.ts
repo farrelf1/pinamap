@@ -13,6 +13,7 @@ export function convertToGeoJSON(data: any[]) {
           message: item.message,
           receiver: item.receiver,
           time: item.time,
+          hasImage: item.has_image,
         },
       })),
     };

@@ -205,7 +205,7 @@ export default function LocationSearch({ mapboxToken, onLocationSelect, onTempMa
         <div className="flex items-center">
           <input
             type="text"
-            placeholder="Search for a location..."
+            placeholder="search for a location..."
             value={searchTerm}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
@@ -218,7 +218,7 @@ export default function LocationSearch({ mapboxToken, onLocationSelect, onTempMa
               isSearching ? 'bg-gray-300' : 'bg-blue-600 hover:bg-blue-700'
             } text-white`}
           >
-            {isSearching ? 'Searching...' : 'Search'}
+            {isSearching ? 'search' : 'search'}
           </button>
         </div>
 

@@ -24,6 +24,8 @@ const formatFeatures = (data: any[]): Feature[] => {
       message: msg.message,
       receiver: msg.receiver,
       time: msg.time,
+      hasImage: msg.has_image,
+      image_url: msg.image_url,
     },
     geometry: {
       type: 'Point',
@@ -100,9 +102,11 @@ export default function MemoryMap() {
         mapRef.current?.easeTo({ center: coordinates, zoom, duration: 500 });
       });
     } else {
+      const coordinates = (feature.geometry as Point).coordinates as [number, number];
+      mapRef.current?.easeTo({ center: coordinates, zoom:12, duration: 500 });
       setSelectedFeature(feature);
       setMatchedFeatures([]);
-      setSearchQuery(''); // Clear search query when a feature is clicked
+      setSearchQuery('');
       setTempMarker(null);
     }
   }, []);
@@ -172,7 +176,7 @@ export default function MemoryMap() {
     setTempMarker(null);
     
     const coordinates = (feature.geometry as Point).coordinates as [number, number];
-    mapRef.current?.easeTo({ center: coordinates, zoom: 9, duration: 500 });
+    mapRef.current?.easeTo({ center: coordinates, zoom: 12, duration: 500 });
   }, []);
 
   const handleZoomToFeature = useCallback((feature: Feature) => {
@@ -182,7 +186,7 @@ export default function MemoryMap() {
     setTempMarker(null);
     
     const coordinates = (feature.geometry as Point).coordinates as [number, number];
-    mapRef.current?.easeTo({ center: coordinates, zoom: 9, duration: 500 });
+    mapRef.current?.easeTo({ center: coordinates, zoom: 12, duration: 500 });
   }, []);
 
   const handlePinToggle = useCallback((show: boolean) => {
